@@ -1,0 +1,180 @@
+/* Reset and base styling */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #e7e8eb, #cde1e0);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  /* Container box for the form */
+  .container {
+    background: #fff;
+    padding: 35px 30px;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 420px;
+    animation: fadeIn 0.6s ease;
+  }
+  
+  /* Flex layout for form elements */
+  .form-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  /* Logo at the top */
+  .logo {
+    width: 60px;
+    margin: 0 auto 20px;
+  }
+  
+  /* Heading and subtext */
+  h2 {
+    text-align: center;
+    color: #1e293b;
+    margin-bottom: 8px;
+    font-size: 24px;
+  }
+  
+  p {
+    text-align: center;
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  
+  /* Inputs styling */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    padding: 11px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  
+  input:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.4);
+  }
+  
+  /* Button styling */
+  button {
+    background-color: #3b82f6;
+    color: white;
+    padding: 11px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    margin-top: 10px;
+  }
+  
+  button:hover {
+    background-color: #2563eb;
+    transform: scale(1.02);
+  }
+  
+  /* Links below form */
+  .text {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 13px;
+    color: #4b5563;
+  }
+  
+  .text a {
+    color: #3b82f6;
+    text-decoration: none;
+  }
+  
+  .text a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Message boxes for error or success */
+  .error,
+  .success {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+  }
+  
+  .success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+  }
+  
+  /* Checkbox label */
+  .checkbox {
+    font-size: 13px;
+    margin-top: 10px;
+    color: #555;
+  }
+  
+  /* Wrapper to position password eye icon */
+  .password-wrapper {
+    position: relative;
+  }
+  
+  .toggle-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 16px;
+    color: #888;
+  }
+  
+  /* Smooth animation on load */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Responsive for small screens */
+  @media (max-width: 480px) {
+    .container {
+      padding: 25px 20px;
+      border-radius: 12px;
+      box-shadow: none;
+    }
+  
+    h2 {
+      font-size: 20px;
+    }
+  
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      font-size: 13px;
+      padding: 9px;
+    }
+  
+    button {
+      font-size: 14px;
+      padding: 10px;
+    }
+  }
+  
