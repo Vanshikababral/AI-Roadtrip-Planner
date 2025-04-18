@@ -25,7 +25,7 @@ $ROOT = "/ai-roadtrip-planner/frontend";
     top: 0;
     left: 0;
     width: 100%;
-    background: linear-gradient(90deg,rgb(147, 207, 187),rgb(152, 189, 175)); /* Matches the body color */
+    background: linear-gradient(90deg,rgb(110, 174, 220),rgb(133, 189, 230)); /* Matches the body color */
     color: #fff;
     padding: 10px 24px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);

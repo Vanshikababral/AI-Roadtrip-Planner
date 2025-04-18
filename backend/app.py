@@ -3,138 +3,144 @@ from flask_cors import CORS
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
-import logging
-import re
+import base64
 
-# Load environment variables
+app = Flask(__name__)
+CORS(app)
+
+# Load API key from .env file
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    raise ValueError("No GEMINI_API_KEY found in environment variables. Please set it in .env file.")
+    print("Error: GEMINI_API_KEY not found. Please set it in a .env file.")
+    exit(1)
 
 # Configure Gemini API
 genai.configure(api_key=api_key)
+# Use gemini-1.5-pro for multimodal capabilities
+model = genai.GenerativeModel('gemini-1.5-pro')
 
-# Initialize Flask app
-app = Flask(__name__)
-CORS(app)
+# Initialize chat sessions storage
+chat_sessions = {}
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler()]
-)
+ROLE_INSTRUCTION = """
+You are a travel assistant chatbot named TravelBot, developed by Vanshika Babral. You specialize in providing information and recommendations about travel destinations, weather updates, and road trip planning. You can also analyze travel-related images, such as maps, destination photos, or itinerary screenshots. Your goal is to provide concise, helpful, and friendly responses to users' travel-related inquiries.
 
-# In-memory context store
-conversation_context = {}
+You should:
+- Keep responses minimal, to the point, and focused on travel, weather, or road trip planning.
+- Mention that you were developed by Vanshika Babral when introducing yourself or when relevant (e.g., when asked about the chatbot).
+- For weather queries, suggest checking real-time sources if specific forecasts are needed, but provide general weather insights when possible.
+- For road trip planning, suggest routes, stops, or attractions based on user preferences.
+- Stay within the domain of travel-related topics and redirect users if they ask about non-travel subjects (e.g., medical or unrelated topics) by saying, "I'm here to help with travel plans! Could you ask about destinations, weather, or road trips?"
+- If asked about yourself, say: "I'm TravelBot, created by Vanshika Babral, to make your travel planning fun and easy!"
+- End responses on a positive note, encouraging users to enjoy their travels.
 
-# Keywords to detect travel-related intent
-TRAVEL_KEYWORDS = [
-    "trip", "route", "plan", "travel", "destination", "stop", "hotel", "food",
-    "accommodation", "cuisine", "weather", "road", "drive", "bus", "taxi", "flight", "train"
-]
-
-def is_travel_related(message):
-    """Check if the message is related to travel planning."""
-    message_lower = message.lower()
-    return any(keyword in message_lower for keyword in TRAVEL_KEYWORDS)
+Examples:
+- User: "What's a good destination for a weekend trip?" -> Suggest 2-3 destinations with brief reasons, e.g., "Jaipur for its vibrant culture or Goa for beaches. Which vibe do you prefer? Happy travels!"
+- User: "What's the weather like in Paris?" -> "Paris in spring is typically mild, around 10-15°C, with some rain. Check a real-time weather app for updates! Planning a trip there?"
+- User: "Plan a road trip from Delhi to Jaipur." -> "Drive from Delhi to Jaipur (about 5 hours). Stop at Neemrana Fort for history or Amber Fort in Jaipur. Want more stops? Safe travels!"
+- User: "What's wrong with my leg?" -> "I'm here to help with travel plans! Could you ask about destinations, weather, or road trips? Happy exploring!"
+"""
 
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
-        data = request.get_json()
-        if not data or "message" not in data:
-            return jsonify({"error": "Invalid request: 'message' field required"}), 400
-
-        user_message = data.get("message", "").strip()
-        session_id = data.get("session_id", "default")
-        if not user_message:
-            return jsonify({"error": "Message is empty"}), 400
-
-        # Initialize Gemini model
-        gemini_model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro",
-            generation_config={"temperature": 0.7, "max_output_tokens": 1000}
-        )
-
-        # Initialize context for this session if not exists
-        if session_id not in conversation_context:
-            conversation_context[session_id] = {"original_trip": None}
-
-        # Check if this is a travel-related request
-        if is_travel_related(user_message):
-            # Update context if it's a new trip request
-            if any(keyword in user_message.lower() for keyword in ["plan my trip", "from", "to"]):
-                conversation_context[session_id]["original_trip"] = user_message
-
-            # Use context only if it exists and the message is a follow-up
-            context = conversation_context[session_id]["original_trip"]
-            if context and context != user_message:
-                roadtrip_prompt = f"""
-                You are a road trip planning assistant. The user previously asked about a trip: "{context}". 
-                Now, based on their latest input: "{user_message}", provide a relevant response in the context of that trip.
-
-                - If the latest input is a follow-up question (e.g., about routes, stops, transport, cuisine, hotels, or weather), answer it specifically for the original trip.
-                - Return the response as raw HTML content (do not prepend "html" or add extra labels) using:
-                    <h2> for the title (e.g., "Travel Options for [Trip]"),
-                    <div class="bg-light p-3 my-2"> for each section or answer,
-                    <strong> to highlight key details.
-                - Keep the response concise, under 300 words.
-                """
-            else:
-                roadtrip_prompt = f"""
-                You are a road trip planning assistant. Based on the user's input: "{user_message}", generate a scenic and interesting road trip plan or answer their travel-related question.
-
-                - If planning a trip, suggest a route from the start to end location, scenic stops, attractions, or towns, one good place to eat, and one nice hotel.
-                - If answering a question (e.g., about cuisine, weather, or transport), provide specific details.
-                - Return the response as raw HTML content (do not prepend "html" or add extra labels) using:
-                    <h2> for the trip title or question topic,
-                    <div class="bg-light p-3 my-2"> for each section (route, stops, hotels, food, etc.),
-                    <strong> to highlight names or places.
-                - Keep the response concise, under 300 words.
-                """
-        else:
-            # Non-travel-related question, no context needed
-            roadtrip_prompt = f"""
-            You are a helpful assistant. Based on the user's input: "{user_message}", provide a concise and relevant response.
-
-            - Answer the question directly without assuming a travel context unless explicitly mentioned.
-            - Return the response as raw HTML content (do not prepend "html" or add extra labels) using:
-                <h2> for the main answer or topic,
-                <div class="bg-light p-3 my-2"> for the response body,
-                <strong> to highlight key details if applicable.
-            - Keep the response under 300 words.
-            """
-
-        # Generate response
-        response = gemini_model.generate_content(roadtrip_prompt)
-        response_text = getattr(response, "text", "").strip()
-
-        # Clean up any unexpected "html" prefix
-        if response_text.lower().startswith("html"):
-            response_text = response_text[4:].strip()
-
-        logging.info("Session %s - Gemini response: %s", session_id, response_text)
-        print("Gemini raw response object:", response)
-
-        if response_text:
-            return jsonify({"reply": response_text})
-        else:
-            logging.warning("Gemini returned no valid text for session %s", session_id)
-            return jsonify({"error": "No valid text response from Gemini"}), 500
-
-    except genai.GenerationError as gen_error:
-        logging.error("Gemini generation error: %s", str(gen_error))
-        return jsonify({"error": "Failed to generate response", "details": str(gen_error)}), 500
+        data = request.json
+        user_message = data.get('message', '')
+        session_id = data.get('session_id', 'default')
+        image_data = data.get('image', None)
+        
+        if not user_message and not image_data:
+            return jsonify({'error': 'No message or image provided'}), 400
+            
+        response = chat_with_gemini(user_message, session_id, image_data)
+        return jsonify({'response': response})
+        
     except Exception as e:
-        logging.exception("Unexpected error in /chat endpoint")
-        return jsonify({"error": "An error occurred while processing your message", "details": str(e)}), 500
+        print(f"Chat error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def chat_with_gemini(prompt, session_id, image_data=None):
+    try:
+        # Initialize or get existing chat history
+        if session_id not in chat_sessions:
+            chat_sessions[session_id] = []
+
+        # Get current session history
+        session_history = chat_sessions[session_id]
+        
+        # Build context from history
+        context = ROLE_INSTRUCTION + "\n\nPrevious conversation:\n"
+        for msg in session_history:
+            context += f"{msg}\n"
+        
+        # Add current prompt
+        user_prompt = f"User: {prompt}"
+        if image_data:
+            user_prompt += " (travel-related image attached)"
+        
+        # For history tracking
+        session_history.append(user_prompt)
+        
+        # For multimodal input handling
+        if image_data:
+            # Convert base64 image to bytes
+            try:
+                # Remove data URL prefix if present
+                if "base64," in image_data:
+                    image_data = image_data.split("base64,")[1]
+                
+                image_bytes = base64.b64decode(image_data)
+                
+                # Create multimodal content
+                response = model.generate_content(
+                    [context, user_prompt, {"mime_type": "image/jpeg", "data": image_bytes}]
+                )
+            except Exception as img_error:
+                print(f"Image processing error: {str(img_error)}")
+                return "I couldn't process the image you sent. Please ensure it's a travel-related image, like a map or destination photo. Try again, and happy travels!"
+        else:
+            # Text-only response
+            full_prompt = context + "\n" + user_prompt
+            response = model.generate_content(full_prompt)
+        
+        # Store the conversation
+        if response and response.text:
+            session_history.append(f"Assistant: {response.text.strip()}")
+        
+        # Check if response was generated successfully
+        if response and response.text:
+            return response.text.strip()
+        
+        return "I'm having trouble understanding. Could you rephrase your travel question? I'm TravelBot, here to help with your adventures!"
+
+    except Exception as e:
+        print(f"Gemini API error: {str(e)}")
+        return "I'm having trouble connecting. Please try again, and happy travels!"
+
+@app.route('/clear-history', methods=['POST'])
+def clear_history():
+    try:
+        data = request.json
+        session_id = data.get('session_id', 'default')
+        
+        if session_id in chat_sessions:
+            chat_sessions[session_id] = []
+            
+        return jsonify({'message': 'Chat history cleared successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get-history', methods=['GET'])
+def get_history():
+    try:
+        session_id = request.args.get('session_id', 'default')
+        history = chat_sessions.get(session_id, [])
+        return jsonify({'history': history})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    try:
-        app.run(host='0.0.0.0', port=5000, debug=True)
-    except Exception as e:
-        logging.error("Failed to start Flask server: %s", str(e))
-        raise
+    print(f"Starting server with API key: {api_key[:10]}...")
+    app.run(debug=True, port=5000)
