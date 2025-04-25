@@ -689,15 +689,22 @@ $ROOT = "/ai-roadtrip-planner/frontend";
                 }
 
                 const data = await response.json();
+                console.log("Backend response:", data); // Add debug logging
                 if (data.response) {
-                    appendMessage("bot", data.response, message);
+                    // Ensure proper rendering of HTML structure from backend
+                    let formattedResponse = data.response;
+                    if (formattedResponse.includes("<h2>")) {
+                        formattedResponse = formattedResponse.replace(/<h2>/g, '<h2>').replace(/<\/h2>/g, '</h2>');
+                    }
+                    appendMessage("bot", formattedResponse, message);
                 } else if (data.error) {
-                    appendMessage("bot", `<div class="bg-light p-3 my-2">🚧 Oops! There was an error: ${data.error}</div>`);
+                    appendMessage("bot", `<div class="bg-light p-3 my-2">🚧 Error: ${data.error} (Status: ${response.status})</div>`);
                 } else {
-                    appendMessage("bot", `<div class="bg-light p-3 my-2">⚠️ Unexpected response. Please try again.</div>`);
+                    appendMessage("bot", `<div class="bg-light p-3 my-2">⚠️ Unexpected response from TravelBot. Debug: ${JSON.stringify(data)}</div>`);
                 }
             } catch (error) {
-                appendMessage("bot", `<div class="bg-light p-3 my-2">⚠️ Can't reach TravelBot. Please check your connection.</div>`);
+                console.error("Fetch error:", error);
+                appendMessage("bot", `<div class="bg-light p-3 my-2">⚠️ Can't reach TravelBot. Check your connection. Error: ${error.message}</div>`);
             }
         }
 
